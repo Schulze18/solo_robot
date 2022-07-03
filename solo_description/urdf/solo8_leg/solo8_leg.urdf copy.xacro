@@ -1,0 +1,218 @@
+<?xml version="1.0"?>
+
+<robot name="solo8" xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <xacro:property name="PI" value="3.1415926535897931"/>
+    <!-- These are absoulte distance value, the sign are decided below -->    
+   
+    
+			<!-- <origin xyz="${HFE_2_KFE_z} 0 ${HFE_2_KFE_y}" rpy="0 0 0" /> -->
+   <!--  <xacro:property name="HFE_2_KFE_y" value="${37.45 * 0.001}" />
+    <xacro:property name="HFE_2_KFE_z" value="${160.00 * 0.001}" /> -->
+    <xacro:property name="HFE_2_KFE_x" value="${160.00 * 0.001}" />
+    <xacro:property name="HFE_2_KFE_y" value="${0.0 * 0.001}" />
+    <xacro:property name="HFE_2_KFE_z" value="${37.45 * 0.001}" />
+
+    <!-- <xacro:property name="KFE_2_FOOT_y" value="${8.0 * 0.001}" />
+    <xacro:property name="KFE_2_FOOT_z" value="${160.00 * 0.001}" /> -->
+    <xacro:property name="KFE_2_FOOT_x" value="${160.0 * 0.001}" />
+    <xacro:property name="KFE_2_FOOT_y" value="${0.0 * 0.001}" />
+    <xacro:property name="KFE_2_FOOT_z" value="${8.00 * 0.001}" />
+
+
+
+            <!-- <origin xyz="${KFE_2_FOOT_z} 0 ${KFE_2_FOOT_y}" rpy="0 0 0" /> -->
+
+    <!-- Include files -->
+    <xacro:include filename="$(find solo_description)/urdf/solo8_leg/solo8_leg.gazebo.xacro"/>
+    <xacro:include filename="$(find solo_description)/urdf/solo8_leg/solo8_leg.transmission.xacro"/>
+
+
+    <xacro:macro name="solo8_leg" params="name parent *origin mesh_ext reflect_hip reflect_upper reflect_front knee_bent_backward ">
+
+        <!-- For the solo8, this is a fixed joint -->
+        <!-- Hip assembly joint -->
+       <!--  <joint name="${name}_haa_joint" type="fixed">
+			<xacro:insert_block name="origin"/>
+			<parent link="${parent}"/>
+			<child link="${name}_hipassembly"/>
+			<axis xyz="0 0 1"/>
+		</joint>
+
+        Fake Hip assembly 
+        <link name="${name}_hipassembly">
+			<inertial>
+				<origin xyz="${0}
+							 ${reflect_hip*0}
+							 ${reflect_hip*0}"/>
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="${(1-reflect_hip)*PI/2} 0 0"/>
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="${(1-reflect_hip)*PI/2} 0 0"/>
+			</collision>
+		</link> -->
+
+
+        <!-- Upper leg joint -->
+		<joint name="${name}_HFE_joint" type="revolute">
+			<!-- <origin xyz="${hipassembly_length} 0 0" rpy="${reflect_upper*PI/2} 0 0"/> -->
+            <xacro:insert_block name="origin"/>
+			<parent link="${parent}"/>
+			<child link="${name}_UPPER_LEG"/>
+			<axis xyz="0 0 1"/>
+			<limit effort="1000" lower="-10" upper="10" velocity="1000"/>
+			<dynamics damping="0.1" friction="0" />
+			<!-- <safety_controller k_position="50" k_velocity="10"
+                  soft_lower_limit="${(1-knee_bent_backward)*(hfe_min)*PI/180 + (knee_bent_backward)*(-hfe_max)*PI/180}"
+                  soft_upper_limit="${(1-knee_bent_backward)*(hfe_max)*PI/180 + (knee_bent_backward)*(-hfe_min)*PI/180}"/> -->
+		</joint>
+
+
+        <link name="${name}_UPPER_LEG">
+        <!-- UPPER LEG LINK INERTIAL -->
+            <!-- Right upper leg inertia -->
+            <inertial>
+                <!-- <origin xyz="-0.00001377 -0.01935853 -0.07870700" rpy="0 0 0" /> -->
+                <mass value="0.14853845"/>
+                <inertia ixx="0.00041107" ixy="0.0"         ixz="0.0"
+                                        iyy="0.00041193" iyz="-0.00004671"
+                                                            izz="0.00003024"/>
+            </inertial>
+            <!-- UPPER LEG LINK VISUAL -->
+            <visual>
+                <!-- <origin xyz="0 0 0" rpy="${(1-reflect_front)*PI/2} 0 0"/> -->
+                <origin xyz="0 0 0" rpy="${-PI/2} 0 ${PI/2}"/>
+                <geometry>
+                    <mesh filename="package://solo_description/meshes/${mesh_ext}/with_foot/solo_upper_leg_right_side.${mesh_ext}"/>
+                </geometry>
+                <material name="${color_name}">
+                    <color rgba="${color} ${opacity}"/>
+                </material>
+            </visual>
+            <!-- UPPER LEG LINK COLLISION -->
+            <collision>
+                <origin xyz="0 0 0" rpy="${-PI/2} 0 ${PI/2}"/>
+                <geometry>
+                    <mesh filename="package://solo_description/meshes/${mesh_ext}/with_foot/solo_upper_leg_right_side.${mesh_ext}"/>
+                </geometry>
+                <material name="${color_name}">
+                    <color rgba="${color} ${opacity}"/>
+                </material>
+            </collision>
+            <!-- Bullet specific paramters -->
+            <contact>
+                <lateral_friction value="1.0"/>
+                <restitution value="0.5"/>
+            </contact>
+        </link> <!-- END UPPER LEG LINK -->
+
+        <!-- Lower leg joint -->
+		<joint name="${name}_KFE_joint" type="revolute">
+			<!-- <origin xyz="0 ${-HFE_2_KFE_y} ${-HFE_2_KFE_z}" rpy="0 0 0" /> -->
+			<!-- <origin xyz="${HFE_2_KFE_z} 0 ${HFE_2_KFE_y}" rpy="0 0 0" /> -->
+            <origin xyz="${HFE_2_KFE_x} ${HFE_2_KFE_y} ${HFE_2_KFE_z}" rpy="0 0 0" />
+			<parent link="${name}_UPPER_LEG"/>
+			<child  link="${name}_LOWER_LEG"/>
+			<axis xyz="0 0 1"/>
+			<limit effort="1000" lower="-10" upper="10" velocity="1000"/>
+			<dynamics damping="0.1" friction="0" />
+		</joint>
+
+        <link name="${name}_LOWER_LEG">
+            <!-- LOWER LEG LINK INERTIAL -->
+                <!-- Left lower leg inertia -->
+                <inertial>
+                <!-- <origin xyz="0.0 0.00787644 -0.08928215" rpy="0 0 0" /> -->
+                <mass value="0.03070001"/>
+                <inertia ixx="0.00012024" ixy="0.0"         ixz="0.0"
+                                        iyy="0.00012029" iyz="0.00000305"
+                                                            izz="0.00000216"/>
+                </inertial>
+            <!-- LOWER LEG LINK VISUAL -->
+            <visual>
+                <origin xyz="0 0 0" rpy="${-PI/2} 0 ${PI/2}"/>
+                <geometry>
+                    <mesh filename="package://solo_description/meshes/${mesh_ext}/with_foot/solo_lower_leg_right_side.${mesh_ext}"/>
+                </geometry>
+                <material name="${color_name}">
+                    <color rgba="${color} ${opacity}"/>
+                </material>
+            </visual>
+            <!-- LOWER LEG LINK COLLISION -->
+            <collision>
+                <origin xyz="0 0 0" rpy="${-PI/2} 0 ${PI/2}"/>
+                <geometry>
+                    <mesh filename="package://solo_description/meshes/${mesh_ext}/with_foot/solo_lower_leg_right_side.${mesh_ext}"/>
+                </geometry>
+                <material name="${color_name}">
+                    <color rgba="${color} ${opacity}"/>
+                </material>
+            </collision>
+            <!-- Bullet specific paramters -->
+            <contact>
+                <lateral_friction value="1.0"/>
+                <restitution value="0.5"/>
+            </contact>
+        </link> 
+        
+        <!-- Foot joint -->
+        <joint name="${name}_foot_joint" type="fixed">
+            <parent link="${name}_LOWER_LEG"/>
+            <child link="${name}_FOOT"/>
+            <!-- Joint placement --><!-- 
+            <origin xyz="0 ${-KFE_2_FOOT_y} ${-KFE_2_FOOT_z}" rpy="0 0 0" /> -->
+            <!-- <origin xyz="${KFE_2_FOOT_z} 0 ${KFE_2_FOOT_y}" rpy="0 0 0" /> -->
+            <origin xyz="${KFE_2_FOOT_x} ${KFE_2_FOOT_y} ${KFE_2_FOOT_z}" rpy="0 0 0" />
+            <!-- Limits (usefull?) -->
+            <limit effort="1000" lower="-10" upper="10" velocity="1000"/>
+            <!-- pybullet simulation parameters -->
+            <dynamics damping="0.0" friction="0.0"/>
+        </joint>
+
+        <!-- Foot link -->
+        <link name="${name}_FOOT">
+            <!-- FOOT INERTIAL -->
+            <!-- This link is symmetrical left or right -->
+            <inertial>
+                <origin xyz="0 0 0.00035767" rpy="0 0 0" />
+                <mass value="0.00693606"/>
+                <inertia ixx="0.00000057" ixy="0.0"         ixz="0.0"
+                                        iyy="0.00000084" iyz="0.0"
+                                                            izz="0.00000053"/>
+            </inertial>
+            <!-- FOOT VISUAL -->
+            <visual>
+                <origin xyz="0 0 0" rpy="${PI/2} 0 0" />
+                <geometry>
+                <mesh filename="package://solo_description/meshes/${mesh_ext}/with_foot/solo_foot.${mesh_ext}"/>
+                </geometry>
+                <material name="${color_name}">
+                    <color rgba="${color} ${opacity}"/>
+                </material>
+            </visual>
+            <!-- FOOT COLLISION -->
+            <collision>
+                <origin xyz="0 0 0" rpy="${PI/2} 0 0" />
+                <geometry>
+                    <mesh filename="package://solo_description/meshes/${mesh_ext}/with_foot/solo_foot.${mesh_ext}"/>
+                </geometry>
+                <material name="${color_name}">
+                    <color rgba="${color} ${opacity}"/>
+                </material>
+            </collision>
+            <!-- Bullet specific paramters -->
+            <contact>
+                <lateral_friction value="1.0"/>
+                <restitution value="0.5"/>
+            </contact>
+        </link> 
+
+     
+
+
+
+    </xacro:macro>
+
+</robot>

@@ -1,0 +1,15 @@
+<launch>
+    <!-- Setup the arguments -->
+    <arg name="robot_model" default="solo8" doc="name of the urdf file without extension."/>
+
+ 
+    <!-- Setup the urdf model as parameter -->
+    <param name="robot_description" command="$(find xacro)/xacro $(find solo_description)/urdf/$(arg robot_model).urdf.xacro" />
+
+    <!-- Export the state of the robot from its configuration vector -->
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" required="true"/>
+
+    <!-- Launch rviz. -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find solo_description)/rviz/solo.rviz" required="true" />
+
+</launch>

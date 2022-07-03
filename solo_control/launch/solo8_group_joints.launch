@@ -1,0 +1,13 @@
+<launch>
+
+	<rosparam file="$(find solo_control)/config/solo8_group_effort_joint_control.yaml" command="load" />
+
+	<include file="$(find solo_description)/launch/solo_gazebo.launch" />
+
+	<node name="solo8_joint_controller_manager" pkg="controller_manager" type="spawner"
+    respawn="false" output="screen" args="joint_state_controller group_joints_effort_controllers"/> 
+
+ 	<!-- Combine joint values -->
+  	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
+
+</launch>

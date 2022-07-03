@@ -1,0 +1,12 @@
+# solo8 Robot:
+
+joint_state_controller:
+  type: joint_state_controller/JointStateController
+  publish_rate: 250
+
+
+# Group Joint Feedforward Effort Controllers ---------------------------------------
+group_feedforward_joints_effort_controllers:
+  type: solo_joint_controllers/JointGroupFeedforwardEffortController
+  joints: ['LF_HFE', 'LF_KFE', 'RF_HFE', 'RF_KFE', 'LH_HFE', 'LH_KFE', 'RH_HFE', 'RH_KFE']
+  pid: {p: 0.0, i: 0.0, d: 0.101}

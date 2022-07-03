@@ -1,0 +1,5 @@
+<library path="lib/libjoint_group_feedforward_effort_controller_lib">
+	<class name="solo_joint_controllers/JointGroupFeedforwardEffortController"
+		type="solo_joint_controllers::JointGroupFeedforwardEffortController" 
+		base_class_type="controller_interface::ControllerBase" />
+</library>

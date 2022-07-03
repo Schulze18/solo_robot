@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+
+<robot name="solo8" xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <xacro:macro name="solo8_leg_transmission" params="name">
+
+        <transmission name="${name}_HFE_trans">
+            <type>transmission_interface/SimpleTransmission</type>
+            
+            <joint name="${name}_HFE">
+                <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+            </joint>
+
+            <actuator name="${name}_HFE_motor">
+                <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+		</transmission>
+
+        <transmission name="${name}_KFE_trans">
+            <type>transmission_interface/SimpleTransmission</type>
+            
+            <joint name="${name}_KFE">
+                <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+            </joint>
+
+            <actuator name="${name}_KFE_motor">
+                <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+		</transmission>
+
+    </xacro:macro>
+
+</robot>

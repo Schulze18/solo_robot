@@ -1,0 +1,22 @@
+<launch>
+    <!-- Setup the arguments -->
+    <arg name="robot_model" default="solo8" doc="name of the urdf file without extension."/>
+
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+		  <arg name="verbose" value="true"/>
+      <arg name="paused" value="true"/>
+         <!-- more default parameters can be changed here -->
+	  </include>
+ 
+    <!-- Setup the urdf model as parameter -->
+    <param name="robot_description" command="$(find xacro)/xacro $(find solo_description)/robots/$(arg robot_model).urdf.xacro" />
+
+    <!-- Spawn Robot on Gazebo -->
+    <!-- <node name="spawn_model" pkg="gazebo_ros" type="spawn_model" args="-urdf -param robot_description -model $(arg robot_model) -z 0.78"/> -->
+    <!-- <node name="spawn_model" pkg="gazebo_ros" type="spawn_model" args="-urdf -param robot_description -model $(arg robot_model) -R 0.2 -P -0.1 -Y 1.57 -z 0.312 -J LF_HFE 0.4 -J RF_HFE -0.4 -J LH_HFE -0.4 -J RH_HFE 0.4 -J LF_KFE -0.65 -J RF_KFE 0.65 -J LH_KFE 0.65 -J RH_KFE -0.65"/> -->
+    <node name="spawn_model" pkg="gazebo_ros" type="spawn_model" args="-urdf -param robot_description -model $(arg robot_model) -z 0.312 -J LF_HFE 0.4 -J RF_HFE -0.4 -J LH_HFE -0.4 -J RH_HFE 0.4 -J LF_KFE -0.65 -J RF_KFE 0.65 -J LH_KFE 0.65 -J RH_KFE -0.65"/>
+
+    <!-- Launch rviz. -->
+    <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find solo_description)/rviz/solo.rviz" required="true" />
+ -->
+</launch>

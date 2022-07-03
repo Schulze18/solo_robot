@@ -1,0 +1,54 @@
+# solo8 Robot:
+
+joint_state_controller:
+  type: joint_state_controller/JointStateController
+  publish_rate: 50
+
+
+# Joints Position Controllers ---------------------------------------
+#Front Left Leg ------------
+fl_hfe_joint_controller:
+  type: effort_controllers/JointPositionController
+  joint: LF_HFE
+  pid: {p: 5.0, i: 0.00, d: 0.1}
+
+fl_kfe_joint_controller:
+  type: effort_controllers/JointPositionController
+  joint: LF_KFE
+  pid: {p: 5.0, i: 0.00, d: 0.1}
+
+
+#Left Hind Leg ---------------
+hl_hfe_joint_controller:
+  type: effort_controllers/JointPositionController
+  joint: LH_HFE
+  pid: {p: 5.0, i: 0.00, d: 0.1}
+
+hl_kfe_joint_controller:
+  type: effort_controllers/JointPositionController
+  joint: LH_KFE
+  pid: {p: 5.0, i: 0.00, d: 0.1}
+
+
+#Right Hind Leg ---------------
+hr_hfe_joint_controller:
+  type: effort_controllers/JointPositionController
+  joint: RH_HFE
+  pid: {p: 5.0, i: 0.00, d: 0.1}
+
+hr_kfe_joint_controller:
+  type: effort_controllers/JointPositionController
+  joint: RH_KFE
+  pid: {p: 5.0, i: 0.00, d: 0.1}
+
+
+#Right Front Leg ---------------
+fr_hfe_joint_controller:
+  type: effort_controllers/JointPositionController
+  joint: RF_HFE
+  pid: {p: 5.0, i: 0.00, d: 0.1}
+
+fr_kfe_joint_controller:
+  type: effort_controllers/JointPositionController
+  joint: RF_KFE
+  pid: {p: 5.0, i: 0.00, d: 0.1}

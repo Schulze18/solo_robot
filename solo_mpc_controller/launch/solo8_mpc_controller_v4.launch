@@ -1,0 +1,32 @@
+<launch>
+    <arg name="mode" default="1"/>
+
+    <!-- Launch Feedforward Controller and Robot -->
+	<include file="$(find solo_control)/launch/solo8_xacro_group_ff_joints.launch" />
+
+  	<node name="solo8_centroid_mpc" pkg="solo_mpc_controller" type="solo8_centroid_mpc" output="screen">
+        <param name="mode" type="int" value="$(arg mode)" />
+        <param name="time" type="double" value="0.01" />
+
+        <!-- Weights -->
+        <param name="Qx" type="double" value="1.0" />
+        <param name="Qy" type="double" value="1.0" />
+        <param name="Qz" type="double" value="500.0" />
+        <param name="Qxd" type="double" value="1.0" />
+        <param name="Qyd" type="double" value="1.0" />
+        <param name="Qzd" type="double" value="20.0" />
+        <param name="R" type="double" value="0.001" />
+        <!--  -->
+        <param name="Qroll" type="double" value="1000.0" />
+        <param name="Qpitch" type="double" value="1000.0" />
+        <param name="Qyaw" type="double" value="50.0" />
+        <param name="Qrolld" type="double" value="50.0" />
+        <param name="Qpitchd" type="double" value="50.0" />
+        <param name="Qyawd" type="double" value="20.0" /> 
+
+
+        <param name="Ny" type="int" value="20" />
+        <param name="Nu" type="int" value="7" />
+    </node>
+
+</launch>

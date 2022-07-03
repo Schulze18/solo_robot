@@ -1,0 +1,12 @@
+<launch>
+
+	<rosparam file="$(find solo_control)/config/solo8_joint_pos_control.yaml" command="load" />
+
+	<include file="$(find solo_description)/launch/solo_xacro_gazebo.launch" />
+
+	<node name="solo8_joint_controller_manager" pkg="controller_manager" type="spawner"
+	respawn="false" output="screen" args="joint_state_controller fl_hfe_joint_controller  fl_kfe_joint_controller fr_hfe_joint_controller fr_kfe_joint_controller hl_hfe_joint_controller hl_kfe_joint_controller hr_hfe_joint_controller hr_kfe_joint_controller"/> 
+  
+  	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
+
+</launch>

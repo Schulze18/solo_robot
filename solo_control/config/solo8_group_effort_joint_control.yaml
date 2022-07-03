@@ -1,0 +1,41 @@
+# solo8 Robot:
+
+joint_state_controller:
+  type: joint_state_controller/JointStateController
+  publish_rate: 250
+
+
+# Group Joint Effort Controllers ---------------------------------------
+group_joints_effort_controllers:
+  type: effort_controllers/JointGroupEffortController
+  joints:
+    - LF_HFE
+    - LF_KFE
+    - RF_HFE
+    - RF_KFE 
+    - LH_HFE
+    - LH_KFE
+    - RH_HFE
+    - RH_KFE  
+  
+joints: ['LF_HFE', 'LF_KFE', 'RF_HFE', 'RF_KFE', 'LH_HFE', 'LH_KFE', 'RH_HFE', 'RH_KFE']
+
+group_joints_effort_controllers2:
+  type: effort_controllers/JointGroupEffortController
+  joints:
+    - LF_HFE
+    - LF_KFE
+    - RF_HFE
+    - RF_KFE 
+    - LH_HFE
+    - LH_KFE
+    - RH_HFE
+    - RH_KFE  
+  LF_HFE/pid: {p: 1000.0, i: 0.01, d: 10.0}
+  LF_KFE/pid: {p: 1000.0, i: 0.01, d: 10.0}
+  RF_HFE/pid: {p: 1000.0, i: 0.01, d: 10.0}
+  RF_KFE/pid: {p: 1000.0, i: 0.01, d: 10.0}
+  LH_HFE/pid: {p: 1000.0, i: 0.01, d: 10.0}
+  LH_KFE/pid: {p: 1000.0, i: 0.01, d: 10.0}
+  RH_HFE/pid: {p: 1000.0, i: 0.01, d: 10.0}
+  RH_KFE/pid: {p: 1000.0, i: 0.01, d: 10.0}

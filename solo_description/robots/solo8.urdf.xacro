@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+
+<robot name="solo8" xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <!-- Properties -->
+    <xacro:property name="PI" value="3.1415926535897931"/>
+    <xacro:property name="color_name" value="grey" />
+    <xacro:property name="color" value="0.8 0.8 0.8" />
+    <xacro:property name="opacity" value="1.0" />
+    <xacro:property name="mesh_ext" value="stl" />
+    
+    <!-- Distances -->
+    <xacro:property name="base_2_HFE_x" value="${190.00 * 0.001}" />
+    <xacro:property name="base_2_HFE_y" value="${104.60 * 0.001}" />
+
+    <!-- Solo8 Trunk -->
+	<xacro:include filename="$(find solo_description)/urdf/solo_trunk/solo_trunk.urdf.xacro"/>
+
+    <!-- Solo8 Leg -->
+	<xacro:include filename="$(find solo_description)/urdf/solo8_leg/solo8_leg.urdf.xacro"/>
+
+    <!-- Solo Trunk -->
+    <xacro:solo_trunk
+        name="base_link"
+        mesh_ext="${mesh_ext}"/>
+
+    <!-- <link name="base_link">
+        <inertial>
+            <origin xyz="0.0 0.0 1" rpy="0 0 0" />
+            <mass value="0.14853845"/>
+        </inertial>    
+    </link>    -->
+
+    <!-- Solo Legs -->
+    <!-- LF -->
+    <xacro:solo8_leg
+        name="LF"
+        parent="base_link"
+        mesh_ext="${mesh_ext}"
+		reflect_hip="1"
+		reflect_upper="1"
+		reflect_front="1"
+		knee_bent_backward="1">
+		<origin xyz="${base_2_HFE_x} ${base_2_HFE_y} 0" rpy="${-PI/2} ${PI/2} 0"/>
+    </xacro:solo8_leg>
+    
+    <!-- RF -->
+    <xacro:solo8_leg
+        name="RF"
+        parent="base_link"
+        mesh_ext="${mesh_ext}"
+		reflect_hip="1"
+		reflect_upper="1"
+		reflect_front="1"
+		knee_bent_backward="1">
+		<origin xyz="${base_2_HFE_x} ${-base_2_HFE_y} 0" rpy="${PI/2} ${PI/2} 0"/>
+    </xacro:solo8_leg>
+
+    <!-- LH -->
+    <xacro:solo8_leg
+        name="LH"
+        parent="base_link"
+        mesh_ext="${mesh_ext}"
+		reflect_hip="1"
+		reflect_upper="1"
+		reflect_front="1"
+		knee_bent_backward="1">
+		<origin xyz="${-base_2_HFE_x} ${base_2_HFE_y} 0" rpy="${-PI/2} ${PI/2} 0"/>
+    </xacro:solo8_leg>
+
+    <!-- RH -->
+    <xacro:solo8_leg
+        name="RH"
+        parent="base_link"
+        mesh_ext="${mesh_ext}"
+		reflect_hip="1"
+		reflect_upper="1"
+		reflect_front="1"
+		knee_bent_backward="1">
+		<origin xyz="${-base_2_HFE_x} ${-base_2_HFE_y} 0" rpy="${PI/2} ${PI/2} 0"/>
+    </xacro:solo8_leg>
+
+
+    <!-- Gazebo -->
+    <gazebo>
+        <plugin name="gazebo_ros_controller_manager" filename="libgazebo_ros_control.so">
+            <legacyModeNS>true</legacyModeNS>
+        </plugin>
+    </gazebo>
+
+</robot>
