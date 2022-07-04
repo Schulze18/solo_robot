@@ -7,7 +7,7 @@ Solo8CentroidMPC::Solo8CentroidMPC(ros::NodeHandle& nh_){
 
     // Get Parameters
     nh_.param<int>("mode", this->controller_mode, 0);
-    nh_.param<double>("time", discrete_time, 0.004);
+    nh_.param<double>("time", sampling_time, 0.004);
 
     nh_.param<double>("Qx", Qlinear(0,0), 100);
     nh_.param<double>("Qy", Qlinear(1,0), 100);
@@ -28,15 +28,10 @@ Solo8CentroidMPC::Solo8CentroidMPC(ros::NodeHandle& nh_){
 
     flag_test = 1;
 
-   /*  ROS_WARN("Weight linear [%f; %f; %f]", Qlinear(0,0), Qlinear(1,0), Qlinear(2,0));
-    ROS_WARN("Weight vel linear [%f; %f; %f]", Qvellinear(0,0), Qvellinear(1,0), Qvellinear(2,0));
- */
     joint_state_sub_ = nh_.subscribe<sensor_msgs::JointState> ("/joint_states", 1, &Solo8CentroidMPC::jointStateCallback, this);
     gazebo_model_state_sub_ = nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 1, &Solo8CentroidMPC::gazeboModelStateCallback, this);
     com_ref_point_sub_ = nh_.subscribe<geometry_msgs::PoseStamped> ("/com_pose_ref", 1, &Solo8CentroidMPC::comRefPoseCallback, this);
 
-    // /group_feedforward_joints_effort_controllers/command
-    // /group_joints_effort_controllers/command
     joint_effort_cmd_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("/group_feedforward_joints_effort_controllers/command", 5);
     grf_cmd_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("/computed_grf", 5);
 
@@ -58,13 +53,12 @@ Solo8CentroidMPC::Solo8CentroidMPC(ros::NodeHandle& nh_){
         updatePredictionModel();
         updateOptMatrices();
         updateConstMatrices();
-        std::cout << "pre osqp setup" << std::endl;
-        osqpMpcSetup();       
-        std::cout << "after osqp setup" << std::endl;
+        osqpMpcSetup();
     }
-    std::cout << "pre time" << std::endl;
-    timer_control = nh_.createTimer(ros::Duration(this->discrete_time), &Solo8CentroidMPC::timeControllerCallback, this);
-    std::cout << "after time" << std::endl;
+
+    // Create Timer
+    timer_control = nh_.createTimer(ros::Duration(this->sampling_time), &Solo8CentroidMPC::timeControllerCallback, this);
+
 }
 
 
@@ -72,14 +66,11 @@ Solo8CentroidMPC::~Solo8CentroidMPC(){
 
 }
 
+
 void Solo8CentroidMPC::jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg){
     /* ROS_WARN("Receive joint state "); */
 
     // Get Joint State
-   /*  for (int i = 0; i < num_joint; i++){
-        this->q(i) = msg->position[i];
-        this->qd(i) = msg->velocity[i];
-    } */
     // LF Joints
     this->q(0) = msg->position[0];
     this->q(1) = msg->position[1];
@@ -144,6 +135,7 @@ void Solo8CentroidMPC::jointStateCallback(const sensor_msgs::JointState::ConstPt
 
 }
 
+
 void Solo8CentroidMPC::gazeboModelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg){
     /* ROS_WARN("Receive gazebo model state "); */
 
@@ -159,13 +151,13 @@ void Solo8CentroidMPC::gazeboModelStateCallback(const gazebo_msgs::ModelStates::
     this->com_angular_quaternion.w() = msg->pose[1].orientation.w;
     /* this->rot_com_to_world = this->com_angular_quaternion.toRotationMatrix();
     this->com_ang_b = this->rot_com_to_world.eulerAngles(0,1,2); */
-    ROS_INFO("CoM Ang Quat %f  %f  %f %f", this->com_angular_quaternion.x(),  this->com_angular_quaternion.y(),  this->com_angular_quaternion.z(),  this->com_angular_quaternion.w());
+    // ROS_INFO("CoM Ang Quat %f  %f  %f %f", this->com_angular_quaternion.x(),  this->com_angular_quaternion.y(),  this->com_angular_quaternion.z(),  this->com_angular_quaternion.w());
     tf::Quaternion quat_ang;
 	tf::quaternionMsgToTF(msg->pose[1].orientation, quat_ang);
     /* tf::Matrix3x3(quat_ang).getEulerYPR(this->com_ang_b[2], this->com_ang_b[1], this->com_ang_b[0]);
     ROS_INFO("CoM Ang Pos %f  %f  %f", this->com_ang_b[0], this->com_ang_b[1], this->com_ang_b[2]); */
     tf::Matrix3x3(quat_ang).getEulerYPR(this->com_ang_w[2], this->com_ang_w[1], this->com_ang_w[0]);
-    ROS_INFO("CoM Ang Pos World %f  %f  %f", this->com_ang_w[0], this->com_ang_w[1], this->com_ang_w[2]);
+    // ROS_INFO("CoM Ang Pos World %f  %f  %f", this->com_ang_w[0], this->com_ang_w[1], this->com_ang_w[2]);
 
     // Update Rotational Matrix
     this->rot_com_to_world(0,0) = cos(this->com_ang_w[2])*cos(this->com_ang_w[1]);
@@ -188,7 +180,7 @@ void Solo8CentroidMPC::gazeboModelStateCallback(const gazebo_msgs::ModelStates::
     this->com_vel_ang_w(0,0) = msg->twist[1].angular.x;
     this->com_vel_ang_w(1,0) = msg->twist[1].angular.y;
     this->com_vel_ang_w(2,0) = msg->twist[1].angular.z;
-    //
+
     T_vel_ang_w_b(0,0) = cos(com_ang_w(2))/cos(com_ang_w(1));
     T_vel_ang_w_b(0,1) = sin(com_ang_w(2))/cos(com_ang_w(1));
     T_vel_ang_w_b(0,2) = 0;
@@ -198,9 +190,7 @@ void Solo8CentroidMPC::gazeboModelStateCallback(const gazebo_msgs::ModelStates::
     T_vel_ang_w_b(2,0) = tan(com_ang_w(1))*cos(com_ang_w(2));
     T_vel_ang_w_b(2,1) = tan(com_ang_w(1))*sin(com_ang_w(2));
     T_vel_ang_w_b(2,2) = 1;
-    /* T_vel_ang_w_b(0,0) = 1; T_vel_ang_w_b(0,1) = 0; T_vel_ang_w_b(0,2) = 0;
-    T_vel_ang_w_b(1,0) = 0; T_vel_ang_w_b(1,1) = 1; T_vel_ang_w_b(1,2) = 0;
-    T_vel_ang_w_b(2,0) = 0; T_vel_ang_w_b(2,1) = 0; T_vel_ang_w_b(2,2) = 1; */
+
     this->com_vel_ang_b = T_vel_ang_w_b*this->com_vel_ang_w;
     /* std::cout << "CoM Vel" << std::endl << this->com_vel << std::endl; */
     /* ROS_INFO("CoM Ang Vel %f  %f  %f", this->com_vel_ang_b[0], this->com_vel_ang_b[1], this->com_vel_ang_b[2]); */
@@ -297,10 +287,7 @@ void Solo8CentroidMPC::initMatrices(){
     
 
     total_mass = (4*upper_leg_mass + 4*lower_leg_mass + trunk_mass);
-   /*  Ny = 15;
-    Nu = 7; */
-    /* minFootForces << -300, -300, -600;
-	maxFootForces << +300, +300, -30; */
+
     mu = 0.6;
     minFootForces = 1;
     maxFootForces = 20;
@@ -314,14 +301,12 @@ void Solo8CentroidMPC::initMatrices(){
     Aopt = Eigen::MatrixXd::Zero(num_states*Ny, num_states);
     Bopt = Eigen::MatrixXd::Zero(num_states*Ny, num_control*Nu);
     Bopt_temp = Eigen::MatrixXd::Zero(num_states, num_control*Nu);
-    /* Q = Eigen::MatrixXd::Zero(num_states, num_states); */
     Q = Eigen::MatrixXd::Zero(num_states, num_states);
     Qbar = Eigen::MatrixXd::Zero(num_states*Ny, num_states*Ny);
     R = Rparam*Eigen::MatrixXd::Identity(num_control, num_control);
     Rbar = Eigen::MatrixXd::Identity(num_control*Nu, num_control*Nu);
     Hopt = Eigen::MatrixXd::Zero(num_control*Nu, num_control*Nu);
-    Fopt = Eigen::MatrixXd::Zero(num_states, num_control*Nu);
-    /* Fopt = Eigen::MatrixXd::Zero(1, num_control*Nu); */
+    Fopt = Eigen::MatrixXd::Zero(1, num_control*Nu);
     Uopt = Eigen::MatrixXd::Zero(num_control*Nu, 1);
     Xref = Eigen::MatrixXd::Zero(num_states*Ny, 1);
     bineq = Eigen::MatrixXd::Zero(num_control*Nu, 1);
@@ -353,20 +338,8 @@ void Solo8CentroidMPC::initMatrices(){
         Gf.block(i*kf.rows(), i*kf.cols(), kf.rows(), kf.cols()) = kf;
         Wf.block(i*fc.rows(), 0, fc.rows(), fc.cols()) = fc;
     }
-    /* std::cout << "kf" << std::endl << kf << std::endl;
-    std::cout << "fc" << std::endl << fc << std::endl;
-    std::cout << "Gf" << std::endl << Gf << std::endl;
-    std::cout << "Wf" << std::endl << Wf << std::endl; */
 
     // Weight Matrices
-    /* Q(0,0) = 100;
-    Q(1,1) = 100;
-    Q(2,2) = 500;
-    //
-    Q(3,3) = 20;
-    Q(4,4) = 20;
-    Q(5,5) = 100; */
-    //
     Q(0,0) = Qlinear(0,0);
     Q(1,1) = Qlinear(1,0);
     Q(2,2) = Qlinear(2,0);
@@ -402,6 +375,7 @@ void Solo8CentroidMPC::initMatrices(){
     
 }
 
+
 void Solo8CentroidMPC::updateStateSpaceLinear(){
     /* State Space
     [rd rdd gd]' = [0 1 0; 0 0 1; 0 0 0][r rd g]'
@@ -431,11 +405,12 @@ void Solo8CentroidMPC::updateStateSpaceLinear(){
     Cc.block(0, 0, 3, 3) = Identity3;
 
     // Discretization
-    Ad = Eigen::MatrixXd::Identity(num_states,num_states) + discrete_time*Ac;
-    Bd = discrete_time*Bc;
+    Ad = Eigen::MatrixXd::Identity(num_states,num_states) + sampling_time*Ac;
+    Bd = sampling_time*Bc;
     Cd = Cc;
 
 }
+
 
 void Solo8CentroidMPC::updateStateSpace(){
     /* State Space
@@ -449,20 +424,20 @@ void Solo8CentroidMPC::updateStateSpace(){
     // Assemble State
     this->xss.block(0, 0, 3, 1) = this->com_pos;
     this->xss.block(3, 0, 3, 1) = this->com_vel;
-    this->xss.block(6, 0, 3, 1) = this->com_ang_w;
+    this->xss.block(6, 0, 3, 1) = this->com_ang_b;
     this->xss.block(9, 0, 3, 1) = this->com_vel_ang_b;
     this->xss.block(12, 0, 3, 1) = this->gravity_vector;
 
     this->xss_ref.block(0, 0, 3, 1) = this->com_pos_ref;
     this->xss_ref.block(3, 0, 3, 1) = this->com_vel_ref;
-    this->xss_ref.block(6, 0, 3, 1) = this->com_ang_w_ref;
+    this->xss_ref.block(6, 0, 3, 1) = this->com_ang_b_ref;
     this->xss_ref.block(9, 0, 3, 1) = this->com_vel_ang_b_ref;
     this->xss_ref.block(12, 0, 3, 1) = this->gravity_vector;
 
     this->Xref = kroneckerProduct( Eigen::MatrixXd::Ones(Ny,1), this->xss_ref);
 
-    std::cout << "xss " << std::endl << this->xss.transpose() << std::endl;
-    std::cout << "xss_ref " << std::endl << this->xss_ref.transpose() << std::endl;
+    // std::cout << "xss " << std::endl << this->xss.transpose() << std::endl;
+    // std::cout << "xss_ref " << std::endl << this->xss_ref.transpose() << std::endl;
 
     // State Space
     Ac.block(0, 3, 3, 3) = Identity3;
@@ -483,10 +458,11 @@ void Solo8CentroidMPC::updateStateSpace(){
     Cc.block(3, 6, 3, 3) = Identity3;
 
     // Discretization
-    Ad = Eigen::MatrixXd::Identity(num_states,num_states) + discrete_time*Ac;
-    Bd = discrete_time*Bc;
+    Ad = Eigen::MatrixXd::Identity(num_states,num_states) + sampling_time*Ac;
+    Bd = sampling_time*Bc;
     Cd = Cc;
 }
+
 
 void Solo8CentroidMPC::updatePredictionModel(){
 
@@ -510,14 +486,8 @@ void Solo8CentroidMPC::updatePredictionModel(){
 void Solo8CentroidMPC::updateOptMatrices(){
 
     Hopt = Rbar + Bopt.transpose()*Qbar*Bopt;
-    /* Fopt = Aopt.transpose()*Qbar*Bopt; */
-   /*  std::cout << "Xref " << Xref.transpose() << std::endl;
-    std::cout << "xss " << xss.transpose() << std::endl; */
-    /* Fopt = (xss.transpose()*Aopt.transpose()*Qbar*Bopt - Xref.transpose()*Qbar*Bopt); */
     Fopt = (Aopt*xss - Xref).transpose()*Qbar*Bopt;
 
-    /* std::cout << "Hopt" << std::endl << Hopt << std::endl;
-    std::cout << "Fopt" << std::endl << Fopt << std::endl; */
 }
 
 
@@ -533,20 +503,6 @@ void Solo8CentroidMPC::initRcfMatrices(){
     wrench_matrix_rcf.block(0, 3, 3, 3) = Identity3 / total_mass;
     wrench_matrix_rcf.block(0, 6, 3, 3) = Identity3 / total_mass;
     wrench_matrix_rcf.block(0, 9, 3, 3) = Identity3 / total_mass;
-    
-/*     KpTrunkRoll = 1000
-    KpTrunkPitch = 1000
-    KpTrunkYaw = 100.0
-    KpTrunkX = 200.0
-    KpTrunkY = 200.0
-    KpTrunkZ = 3500.0
-
-    KdTrunkRoll = 200
-    KdTrunkPitch = 200
-    KdTrunkYaw = 100
-    KdTrunkX = 200
-    KdTrunkY = 200
-    KdTrunkZ = 800 */
 
     Rcf_acc_linear_des = Eigen::MatrixXd::Zero(3, 1);
     Rcf_acc_ang_des = Eigen::MatrixXd::Zero(3, 1);
@@ -576,16 +532,8 @@ void Solo8CentroidMPC::initRcfMatrices(){
 void Solo8CentroidMPC::updateRcfMatrices(){
    
     // Update Desired Acc
-   /*  std::cout << "CoM pos ref " << com_pos_ref << std::endl;
-    std::cout << "CoM pos " << com_pos << std::endl;
-    std::cout << "CoM vel ref " << com_pos_ref << std::endl;
-    std::cout << "CoM vel " << com_pos << std::endl;
-    std::cout << "Kp linear " << Rcf_Kp_linear << std::endl;
-    std::cout << "Kd linear " << Rcf_Kd_linear << std::endl; */
-   /*  std::cout << "CoM pos ref " << com_pos_ref << " CoM pos " << com_pos << " CoM pos error " << com_pos_ref - com_pos << std::endl; */
     Rcf_acc_linear_des = Rcf_Kp_linear*(com_pos_ref - com_pos) + Rcf_Kd_linear*(com_vel_ref - com_vel);
     
-    /* std::cout << "Acc des " << Rcf_acc_linear_des << std::endl; */
     Rcf_acc_ang_des = Rcf_Kp_ang*(com_ang_b_ref-com_ang_b) + Rcf_Kd_ang*(-com_vel_ang_b);
     inertia_w = rot_com_to_world*inertia_b*rot_com_to_world.transpose();
 
@@ -604,9 +552,9 @@ void Solo8CentroidMPC::updateRcfMatrices(){
 
 
 void Solo8CentroidMPC::timeControllerCallback(const ros::TimerEvent& event){
-    /* ROS_WARN("Timer Callback"); */
- 
+
     if(this->controller_mode == 0){
+        ROS_INFO("New RCF Torque computed at %fs", this->sampling_time);    
         
         updateTransformation();    
         updateFootholdPosition();
@@ -615,12 +563,10 @@ void Solo8CentroidMPC::timeControllerCallback(const ros::TimerEvent& event){
 
         grf_force = OSQP_solution;
 
-       /*  std::cout << "Max Force " << maxFootForces <<  " Min Force " << minFootForces << std::endl;
-        std::cout << "GRF Force " << grf_force << std::endl; */
-       /*  std::cout << "GRF Force " << grf_force.transpose() << std::endl; */
     }
     else if(this->controller_mode == 1){
-   
+        ROS_INFO("New MPC Torque computed at %fs", this->sampling_time);
+        
         // Update all data
         updateTransformation();
         updateFootholdPosition();
@@ -637,7 +583,6 @@ void Solo8CentroidMPC::timeControllerCallback(const ros::TimerEvent& event){
         grf_force = Uopt.block(0, 0, num_control, 1);
     
     }
-    std::cout << "GRF Force " << grf_force.transpose() << std::endl;
 
     updateContactJacobians();
 
@@ -649,6 +594,7 @@ void Solo8CentroidMPC::timeControllerCallback(const ros::TimerEvent& event){
 
 }
 
+
 int Solo8CentroidMPC::osqpMpcSetup(){
 
     // Solver Settings
@@ -658,10 +604,8 @@ int Solo8CentroidMPC::osqpMpcSetup(){
     this->osqp_solver.settings()->setCheckTermination(50);
     this->osqp_solver.data()->setNumberOfVariables(num_control*Nu);
     this->osqp_solver.data()->setNumberOfConstraints(Aineq.rows());
-    /* this->osqp_solver.data()->setNumberOfConstraints(1); */
 
     hessian_sparse = Hopt.sparseView();
-    /* fosqp = xss.transpose()*Fopt; */
     fosqp = Fopt.transpose();
     lower_bound = Eigen::VectorXd::Constant(Aineq.rows(), -1e7);
 
@@ -671,14 +615,12 @@ int Solo8CentroidMPC::osqpMpcSetup(){
     if( !this->osqp_solver.data()->setUpperBound( bineq ) ) return 1;
     if( !this->osqp_solver.data()->setLowerBound( lower_bound ) ) return 1;
     
-    std::cout << "pre init solver" << std::endl;
     if( !this->osqp_solver.initSolver() ){
         std::cout << "Can't init solver" << std::endl;
     }
     else{
         std::cout << "OSQP initialized." << std::endl;
     }
-    std::cout << "after init solver" << std::endl;
     
     return 0;
 
@@ -701,13 +643,7 @@ int Solo8CentroidMPC::osqpRcfSetup(){
     bineq = fc;
     lower_bound = Eigen::VectorXd::Constant(kf.rows(), -1e7);
 
-
-   /*  std::cout << "num var " << num_control << std::endl;
-    std::cout << "Hrcf " << Hrcf.rows() << " x " << Hrcf.cols() << std::endl;
-    std::cout << "fosqp " << fosqp.rows() << " x " << fosqp.cols() << std::endl;
-    std::cout << "Aineq " << Aineq.rows() << " x " << Aineq.cols() << std::endl;
-    std::cout << "bineq " << bineq.rows() << " x " << bineq.cols() << std::endl; */
-
+    // Setup Osqp
     if( !this->osqp_solver.data()->setHessianMatrix( hessian_sparse ) )  return 1;
     if( !this->osqp_solver.data()->setGradient( fosqp ) ) return 1; 
     if( !this->osqp_solver.data()->setLinearConstraintsMatrix( Aineq ) ) return 1;
@@ -740,7 +676,6 @@ int Solo8CentroidMPC::osqpRcfSolve(){
     }
     OSQP_solution = this->osqp_solver.getSolution();
 
-    //std::cout << "OSQP solution " << OSQP_solution.head(12)  << std::endl  << std::endl;
     return 0;
 
 }
@@ -748,24 +683,13 @@ int Solo8CentroidMPC::osqpRcfSolve(){
 
 int Solo8CentroidMPC::osqpMpcSolve(){
 
-    /* std::cout << "Qbar " << Qbar << std::endl;
-    std::cout << "Rbar  " << Rbar << std::endl; */
-
     // Update Matrices
     hessian_sparse = Hopt.sparseView();
-    /* fosqp = xss.transpose()*Fopt; */
     fosqp = Fopt.transpose();
-    /* std::cout << "fosqp " << fosqp.rows() << " x " << fosqp.cols() << std::endl;
-    std::cout << "fosqp " << fosqp << std::endl; */
-
-    /* std::cout << "MPC: "  << std::endl;
-    std::cout << "Hopt " << Hopt.rows() << " x " << Hopt.cols() << std::endl;
-    std::cout << "fosqp " << fosqp.rows() << " x " << fosqp.cols() << std::endl; */
-
+ 
+    // Update Osqp Data
     if( !this->osqp_solver.updateHessianMatrix( hessian_sparse ) )  return 1;
     if( !this->osqp_solver.updateGradient( fosqp ) )  return 1;
-    /* if( !this->osqp_solver.updateLinearConstraintsMatrix( Aineq ) )  return 1;
-    if( !this->osqp_solver.updateUpperBound( bineq ) )  return 1; */
 
     if( !this->osqp_solver.solve()){
         std::cout << "ERROR" << std::endl;
@@ -774,12 +698,6 @@ int Solo8CentroidMPC::osqpMpcSolve(){
         OSQP_solution = this->osqp_solver.getSolution();
     }
 
-    /* std::cout << "MPC OSQP was solved." << std::endl; */
-
-    /* std::cout << "Xref - xss " << std::endl;
-    std::cout << (-xss.transpose()*Aopt.transpose() - this->osqp_solver.getSolution().transpose()*Bopt.transpose() +  Xref.transpose()) << std::endl; */
-    /* std::cout << "Ineq " << Aineq*this->osqp_solver.getSolution() << " " << bineq << std::endl; */
-    //std::cout << "OSQP solution " << OSQP_solution.head(12)  << std::endl  << std::endl;
     return 0;
 
 }
@@ -812,16 +730,6 @@ void Solo8CentroidMPC::updateTransformation(){
     T_com_LF_foot.block(0, 0, 3, 3) = rot_com_LF_foot;
     T_com_LF_foot.block(0, 3, 3, 1) = d_com_LF_foot;
     T_com_LF_foot(3,3) = 1;
-/* 
-    T_com_LF_foot(0,0) = -sin(q(0) + q(1));
-    T_com_LF_foot(0,1) = -cos(q(0) + q(1));
-    T_com_LF_foot(0,3) = d_haa_x - lower_leg_length*sin(q(0) + q(1)) - upper_leg_length*sin(q(0));
-    T_com_LF_foot(1,2) = 1;
-    T_com_LF_foot(1,3) = d_haa_y;
-    T_com_LF_foot(2,0) = -cos(q(0) + q(1));
-    T_com_LF_foot(2,1) = sin(q(0) + q(1));
-    T_com_LF_foot(2,3) = d_haa_z - lower_leg_length*cos(q(0) + q(1)) - upper_leg_length*cos(q(0));
-    T_com_LF_foot(3,3) = 1; */
 
     // RF
     rot_com_RF_foot(0,0) = sin(q(2) + q(3));
@@ -836,15 +744,6 @@ void Solo8CentroidMPC::updateTransformation(){
     T_com_RF_foot.block(0, 0, 3, 3) = rot_com_RF_foot;
     T_com_RF_foot.block(0, 3, 3, 1) = d_com_RF_foot;
     T_com_RF_foot(3,3) = 1;
-   /*  T_com_RF_foot(0,0) = sin(q(2) + q(3));
-    T_com_RF_foot(0,1) = cos(q(2) + q(3));
-    T_com_RF_foot(0,3) = d_haa_x + lower_leg_length*sin(q(2) + q(3)) + upper_leg_length*sin(q(2));
-    T_com_RF_foot(1,2) = -1;
-    T_com_RF_foot(1,3) = -d_haa_y;
-    T_com_RF_foot(2,0) = -cos(q(2) + q(3));
-    T_com_RF_foot(2,1) = sin(q(2) + q(3));
-    T_com_RF_foot(2,3) = d_haa_z - lower_leg_length*cos(q(2) + q(3)) - upper_leg_length*cos(q(2));
-    T_com_RF_foot(3,3) = 1; */
 
     // LH
     rot_com_LH_foot(0,0) = -sin(q(4) + q(5));
@@ -858,15 +757,6 @@ void Solo8CentroidMPC::updateTransformation(){
     T_com_LH_foot.block(0, 0, 3, 3) = rot_com_LH_foot;
     T_com_LH_foot.block(0, 3, 3, 1) = d_com_LH_foot;
     T_com_LH_foot(3,3) = 1;
-    /* T_com_LH_foot(0,0) = -sin(q(0) + q(1));
-    T_com_LH_foot(0,1) = -cos(q(0) + q(1));
-    T_com_LH_foot(0,3) = d_haa_x - lower_leg_length*sin(q(0) + q(1)) - upper_leg_length*sin(q(0));
-    T_com_LH_foot(1,2) = 1;
-    T_com_LH_foot(1,3) = d_haa_y;
-    T_com_LH_foot(2,0) = -cos(q(0) + q(1));
-    T_com_LH_foot(2,1) = sin(q(0) + q(1));
-    T_com_LH_foot(2,3) = d_haa_z - lower_leg_length*cos(q(0) + q(1)) - upper_leg_length*cos(q(0));
-    T_com_LH_foot(3,3) = 1; */
 
     // RH
     rot_com_RH_foot(0,0) = sin(q(6) + q(7));
@@ -908,41 +798,18 @@ void Solo8CentroidMPC::updateFootholdPosition(){
     // RH
     footholdPositions_w.block(0,3,3,1) = footholdPositions_b.block(0,3,3,1) + com_pos;
 
-    /* std::cout << "Foothoold Base " << std::endl << footholdPositions_b << std::endl;
-    std::cout << "Foothoold World " << std::endl << footholdPositions_w << std::endl; */
-
     // Compute Skew matrices
     // LF
-    skew_LF_foot_b(0,1) = -footholdPositions_b(2,0);
-    skew_LF_foot_b(0,2) = footholdPositions_b(1,0);
-    skew_LF_foot_b(1,0) = footholdPositions_b(2,0);
-    skew_LF_foot_b(1,2) = -footholdPositions_b(0,0);
-    skew_LF_foot_b(2,0) = -footholdPositions_b(1,0);
-    skew_LF_foot_b(2,1) = footholdPositions_b(0,0);
+    skew_LF_foot_b = Solo8CentroidMPC::skewMat(footholdPositions_b.col(0));
 
     // RF
-    skew_RF_foot_b(0,1) = -footholdPositions_b(2,1);
-    skew_RF_foot_b(0,2) = footholdPositions_b(1,1);
-    skew_RF_foot_b(1,0) = footholdPositions_b(2,1);
-    skew_RF_foot_b(1,2) = -footholdPositions_b(0,1);
-    skew_RF_foot_b(2,0) = -footholdPositions_b(1,1);
-    skew_RF_foot_b(2,1) = footholdPositions_b(0,1);
+    skew_RF_foot_b = Solo8CentroidMPC::skewMat(footholdPositions_b.col(1));
 
     // LH
-    skew_LH_foot_b(0,1) = -footholdPositions_b(2,2);
-    skew_LH_foot_b(0,2) = footholdPositions_b(1,2);
-    skew_LH_foot_b(1,0) = footholdPositions_b(2,2);
-    skew_LH_foot_b(1,2) = -footholdPositions_b(0,2);
-    skew_LH_foot_b(2,0) = -footholdPositions_b(1,2);
-    skew_LH_foot_b(2,1) = footholdPositions_b(0,2);
+    skew_LH_foot_b = Solo8CentroidMPC::skewMat(footholdPositions_b.col(2));
 
     // RH
-    skew_RH_foot_b(0,1) = -footholdPositions_b(2,3);
-    skew_RH_foot_b(0,2) = footholdPositions_b(1,3);
-    skew_RH_foot_b(1,0) = footholdPositions_b(2,3);
-    skew_RH_foot_b(1,2) = -footholdPositions_b(0,3);
-    skew_RH_foot_b(2,0) = -footholdPositions_b(1,3);
-    skew_RH_foot_b(2,1) = footholdPositions_b(0,3);
+    skew_RH_foot_b = Solo8CentroidMPC::skewMat(footholdPositions_b.col(3));
 
 }
 
@@ -962,5 +829,15 @@ void Solo8CentroidMPC::pubGrfCmd(){
     }
 
     grf_cmd_pub_.publish(msg);
+
+}
+
+
+Eigen::Matrix3d Solo8CentroidMPC::skewMat(Eigen::Vector3d input_skew){
+
+    Eigen::Matrix3d skew_mat;
+    skew_mat << 0.0, -input_skew(2,0), input_skew(1,0), input_skew(2,0), 0.0, -input_skew(0,0), -input_skew(1,0), input_skew(0,0), 0.0;
+
+    return skew_mat;
 
 }

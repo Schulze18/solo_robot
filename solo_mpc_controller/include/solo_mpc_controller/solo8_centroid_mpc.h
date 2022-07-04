@@ -57,6 +57,7 @@ class Solo8CentroidMPC
         int osqpMpcSolve();
         void updateTransformation();
         void updateFootholdPosition();
+        Eigen::Matrix3d skewMat(Eigen::Vector3d);
 
     private:
         
@@ -72,7 +73,7 @@ class Solo8CentroidMPC
         double gravity = 9.81;
         double total_mass;
         int num_joint = 8;
-        double discrete_time = 0.04;
+        double sampling_time = 0.04;
         int num_states = 15;
         int num_control = 12;
         int num_out = 3;
@@ -143,7 +144,6 @@ class Solo8CentroidMPC
         Eigen::MatrixXd Uopt;
         Eigen::MatrixXd Xref;
         Eigen::SparseMatrix<double> Aineq;
-        // Eigen::MatrixXd bineq;
         Eigen::VectorXd bineq, lower_bound; 
         Eigen::Matrix<double, 3, 1> Qlinear;
         Eigen::Matrix<double, 3, 1> Qvellinear; 
